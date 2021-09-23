@@ -56,26 +56,26 @@ class SensorPure(SensorAbs):
         v = np.random.multivariate_normal(np.array([0, 0]), self.R)
         return self.H@ground_truth + v
 
-class SensorWithPrivileges(SensorPure):
-    def __init__(self, n, m, H, R, covars_to_remove, generators):
-        assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
-        super().__init__(n, m, H, R)
-        self.covars_to_remove = covars_to_remove
-        self.generators = generators
-        self.num_privs = len(covars_to_remove)
-        return
+# class SensorWithPrivileges(SensorPure):
+#     def __init__(self, n, m, H, R, covars_to_remove, generators):
+#         assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
+#         super().__init__(n, m, H, R)
+#         self.covars_to_remove = covars_to_remove
+#         self.generators = generators
+#         self.num_privs = len(covars_to_remove)
+#         return
     
-    def measure(self, ground_truth):
-        return super().measure(ground_truth) + self.get_sum_of_additional_noises()
+#     def measure(self, ground_truth):
+#         return super().measure(ground_truth) + self.get_sum_of_additional_noises()
     
-    def get_sum_of_additional_noises(self):
-        noise = 0
-        for i in range(self.num_privs):
-            n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
-            noise += n
-            #print("Sensor noise %d: " % i, n)
-        #print("Sensor noise sum: ", noise)
-        return noise
+#     def get_sum_of_additional_noises(self):
+#         noise = 0
+#         for i in range(self.num_privs):
+#             n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
+#             noise += n
+#             #print("Sensor noise %d: " % i, n)
+#         #print("Sensor noise sum: ", noise)
+#         return noise
     
 
 """
@@ -124,46 +124,65 @@ class KFilter(FilterAbs):
         self.P = self.P - (K@S@K.T)
         return self.x, self.P
 
-class UnprivFilter(KFilter):
-    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, covars_to_remove):
-        super().__init__(n, m, F, Q, H, R, init_state, init_cov)
-        self.R = self.R + sum(covars_to_remove)
-        return
-
-class PrivFilter(KFilter):
-    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, priv_covar, covar_to_remove, generator):
-        super().__init__(n, m, F, Q, H, R, init_state, init_cov)
-        self.R = self.R + priv_covar
-        self.covar_to_remove = covar_to_remove
-        self.generator = generator
-        return
-    
-    def update(self, measurement):
-        super().update(measurement - self.get_additional_noise())
-        return self.x, self.P
-    
-    def get_additional_noise(self):
-        return self.generator.next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covar_to_remove)
-
-class MultKeyPrivFilter(KFilter):
-    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, priv_covar, covars_to_remove, generators):
-        assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
-        super().__init__(n, m, F, Q, H, R, init_state, init_cov)
-        self.R = self.R + priv_covar
-        self.covars_to_remove = covars_to_remove
+class PrivFusionFilter(KFilter):
+    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, Z, Y, generators, priv_lvl, use_unpriv):
+        self.Z = Z
+        self.Y = Y
         self.generators = generators
-        self.num_privs = len(covars_to_remove)
+        self.priv_lvl = priv_lvl
+        self.use_unpriv = use_unpriv
+        stacked_H = None
+        stacked_R = None
+        stacked_m = None
+        super().__init__(n, stacked_m, F, Q, stacked_H, stacked_R, init_state, init_cov)
         return
     
-    def update(self, measurement):
-        super().update(measurement - self.get_sum_of_additional_noises())
+    def update(self, measurements):
+        # Just need to remove noises from j measurements as H and R are accounted for at initialisation
+        for m in measurements:
+            super().update(m)
         return self.x, self.P
+
+# class UnprivFilter(KFilter):
+#     def __init__(self, n, m, F, Q, H, R, init_state, init_cov, covars_to_remove):
+#         super().__init__(n, m, F, Q, H, R, init_state, init_cov)
+#         self.R = self.R + sum(covars_to_remove)
+#         return
+
+# class PrivFilter(KFilter):
+#     def __init__(self, n, m, F, Q, H, R, init_state, init_cov, priv_covar, covar_to_remove, generator):
+#         super().__init__(n, m, F, Q, H, R, init_state, init_cov)
+#         self.R = self.R + priv_covar
+#         self.covar_to_remove = covar_to_remove
+#         self.generator = generator
+#         return
     
-    def get_sum_of_additional_noises(self):
-        noise = 0
-        for i in range(self.num_privs):
-            n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
-            noise += n
-            #print("Added noise %d: " % i, n)
-        #print("Added noise sum: ", noise)
-        return noise
+#     def update(self, measurement):
+#         super().update(measurement - self.get_additional_noise())
+#         return self.x, self.P
+    
+#     def get_additional_noise(self):
+#         return self.generator.next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covar_to_remove)
+
+# class MultKeyPrivFilter(KFilter):
+#     def __init__(self, n, m, F, Q, H, R, init_state, init_cov, priv_covar, covars_to_remove, generators):
+#         assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
+#         super().__init__(n, m, F, Q, H, R, init_state, init_cov)
+#         self.R = self.R + priv_covar
+#         self.covars_to_remove = covars_to_remove
+#         self.generators = generators
+#         self.num_privs = len(covars_to_remove)
+#         return
+    
+#     def update(self, measurement):
+#         super().update(measurement - self.get_sum_of_additional_noises())
+#         return self.x, self.P
+    
+#     def get_sum_of_additional_noises(self):
+#         noise = 0
+#         for i in range(self.num_privs):
+#             n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
+#             noise += n
+#             #print("Added noise %d: " % i, n)
+#         #print("Added noise sum: ", noise)
+#         return noise
