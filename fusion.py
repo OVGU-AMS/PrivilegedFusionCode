@@ -75,7 +75,7 @@ def main():
     priv_filters_j_ms = []
     priv_filters_all_ms = []
     for j in range(num_sensors):
-        gens = [g[0] for g in generator_pairs[:j]]
+        gens = [g[0] for g in generator_pairs[:j+1]]
         priv_filters_j_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1, False))
         priv_filters_all_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1, True))
 
@@ -97,7 +97,6 @@ def main():
     # #est_filter_fused_unprivileged_zs = est.KFilter(n, m, F, Q, H, R+fused_added_noise_cov, init_state, init_cov)
 
     # Simulation
-    # TODO run sim many times
     sim_runs = 1000
     sim_steps = 100
     sims = []
@@ -105,11 +104,13 @@ def main():
         sim = SimData(s)
         sims.append(sim)
         for _ in range(sim_steps):
+            
             # Update ground truth
             gt = ground_truth.update()
             sim.gt.append(gt)
 
             # Generate correlated noise
+            
 
             # Make all measurements and add pseudorandom noises
             zs = []
@@ -118,7 +119,7 @@ def main():
                 # TODO add noises here
             sim.zs.append(zs)
 
-            
+
 
             # # Privileged filter on true measurements
             # filter_priv.predict()
@@ -159,24 +160,6 @@ def main():
         
     return
 
-
+# Run main
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-# for Pc in np.arange(0,1,0.1):
-#     P = 0.5
-#     P2 = 0.5
-#     P_list = []
-#     for i in range(50):
-#         P_list.append(P)
-#         P = P - (P - Pc)*((P + P2 - Pc - Pc)**-1)*(P - Pc)
-#     plt.plot(P_list, label="cP: %1.1lf" % Pc)
-# plt.legend()
-# plt.show()
