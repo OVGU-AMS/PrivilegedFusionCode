@@ -56,28 +56,6 @@ class SensorPure(SensorAbs):
         v = np.random.multivariate_normal(np.array([0, 0]), self.R)
         return self.H@ground_truth + v
 
-# class SensorWithPrivileges(SensorPure):
-#     def __init__(self, n, m, H, R, covars_to_remove, generators):
-#         assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
-#         super().__init__(n, m, H, R)
-#         self.covars_to_remove = covars_to_remove
-#         self.generators = generators
-#         self.num_privs = len(covars_to_remove)
-#         return
-    
-#     def measure(self, ground_truth):
-#         return super().measure(ground_truth) + self.get_sum_of_additional_noises()
-    
-#     def get_sum_of_additional_noises(self):
-#         noise = 0
-#         for i in range(self.num_privs):
-#             n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
-#             noise += n
-#             #print("Sensor noise %d: " % i, n)
-#         #print("Sensor noise sum: ", noise)
-#         return noise
-    
-
 """
  
  ######## #### ##       ######## ######## ########   ######  
@@ -125,23 +103,83 @@ class KFilter(FilterAbs):
         return self.x, self.P
 
 class PrivFusionFilter(KFilter):
-    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, Z, Y, generators, priv_lvl, use_unpriv):
+    def __init__(self, n, m, F, Q, H, R, init_state, init_cov, Z, Y, generators, num_measurements):
         self.Z = Z
         self.Y = Y
         self.generators = generators
-        self.priv_lvl = priv_lvl
-        self.use_unpriv = use_unpriv
-        stacked_H = None
-        stacked_R = None
-        stacked_m = None
+        self.num_measurements = num_measurements
+
+        self.single_m = m
+        self.privilege = len(generators)
+        # TODO how about unprivielged - should be modfying stacked_R!
+        self.correlated_noise_covariance = np.block([[Z+Y if c==r else Z for c in range(self.privilege)] for r in range(self.privilege)])
+
+        stacked_H = np.block([H for _ in num_measurements])
+        # TODO modified stacked_R when num_measurements > len(generators)
+        stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in num_measurements] for r in num_measurements])
+        stacked_m = m*num_measurements
+
         super().__init__(n, stacked_m, F, Q, stacked_H, stacked_R, init_state, init_cov)
         return
     
     def update(self, measurements):
-        # Just need to remove noises from j measurements as H and R are accounted for at initialisation
-        for m in measurements:
-            super().update(m)
+        # Generate the known noises
+        std_normals = np.block([g.next_n_as_std_gaussian(self.single_m) for g in self.generators])
+        correlated_noises = np.linalg.cholesky(self.correlated_noise_covariance)@std_normals
+
+        # Remove the noises from the recieved measurements
+        padding = np.array([0 for _ in range(self.num_measurements - self.privilege)])
+        padded_correlated_noises = np.block([correlated_noises, padding])
+        denoised_measurments = measurements - padded_correlated_noises
+
+        # Run filter udpate
+        super().update(denoised_measurments)
         return self.x, self.P
+
+
+# =====
+
+# #filter_priv = est.KFilter(n, m, F, Q, H, R, init_state, init_cov)
+# filters_priv_varying_sensors = []
+# for sens in range(1, num_sensors+1):
+#     stacked_H = np.block([[H] for _ in range(sens)])
+#     stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in range(sens)] for r in range(sens)])
+#     f = estmtn.KFilter(n, sens*m, F, Q, stacked_H, stacked_R, init_state, init_cov)
+#     filters_priv_varying_sensors.append(f)
+
+# filters_unpriv_varying_sensors = []
+# for sens in range(1, num_sensors+1):
+#     stacked_H = np.block([[H] for _ in range(sens)])
+#     stacked_R = np.block([[R+Z if c==r else Z for c in range(sens)] for r in range(sens)])
+#     f = estmtn.KFilter(n, sens*m, F, Q, stacked_H, stacked_R, init_state, init_cov)
+#     filters_unpriv_varying_sensors.append(f)
+# #est_filter_unprivileged_zs = est.KFilter(n, 2*m, F, Q, H2, R2+added_noise_cov_corr, init_state, init_cov)
+# #est_filter_fused_unprivileged_zs = est.KFilter(n, m, F, Q, H, R+fused_added_noise_cov, init_state, init_cov)
+
+# =====
+
+# class SensorWithPrivileges(SensorPure):
+#     def __init__(self, n, m, H, R, covars_to_remove, generators):
+#         assert (len(covars_to_remove) == len(generators)), "Number of privilege classes does not match number of generators! Aborting."
+#         super().__init__(n, m, H, R)
+#         self.covars_to_remove = covars_to_remove
+#         self.generators = generators
+#         self.num_privs = len(covars_to_remove)
+#         return
+    
+#     def measure(self, ground_truth):
+#         return super().measure(ground_truth) + self.get_sum_of_additional_noises()
+    
+#     def get_sum_of_additional_noises(self):
+#         noise = 0
+#         for i in range(self.num_privs):
+#             n = self.generators[i].next_n_as_gaussian(self.m, np.array([0 for _ in range(self.m)]), self.covars_to_remove[i])
+#             noise += n
+#             #print("Sensor noise %d: " % i, n)
+#         #print("Sensor noise sum: ", noise)
+#         return noise
+
+# =====
 
 # class UnprivFilter(KFilter):
 #     def __init__(self, n, m, F, Q, H, R, init_state, init_cov, covars_to_remove):

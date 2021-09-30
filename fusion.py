@@ -61,40 +61,24 @@ def main():
     # Pseudorandom correleated and uncorrelated covariances
     Z = 10*np.eye(2)
     Y = 8*np.eye(2)
+    sensor_correlated_covariance = np.block([[Z+Y if r==c else Z for c in range(num_sensors)] for r in range(num_sensors)])
 
     # Synced cryptographically random number generators
     generator_pairs = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(2) for _ in range(num_sensors)]
 
-    # Creating simulation objects
+    # Creating simulation objects (ground truth, sensors and filters)
     ground_truth = estmtn.GroundTruth(F, Q, gt_init_state)
     sensors = []
     for _ in range(num_sensors):
         sensors.append(estmtn.SensorPure(n, m, H, R))
 
-    unpriv_filter = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, [], 0, True)
+    unpriv_filter = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, [], num_sensors)
     priv_filters_j_ms = []
     priv_filters_all_ms = []
     for j in range(num_sensors):
         gens = [g[0] for g in generator_pairs[:j+1]]
-        priv_filters_j_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1, False))
-        priv_filters_all_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1, True))
-
-    # #filter_priv = est.KFilter(n, m, F, Q, H, R, init_state, init_cov)
-    # filters_priv_varying_sensors = []
-    # for sens in range(1, num_sensors+1):
-    #     stacked_H = np.block([[H] for _ in range(sens)])
-    #     stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in range(sens)] for r in range(sens)])
-    #     f = estmtn.KFilter(n, sens*m, F, Q, stacked_H, stacked_R, init_state, init_cov)
-    #     filters_priv_varying_sensors.append(f)
-    
-    # filters_unpriv_varying_sensors = []
-    # for sens in range(1, num_sensors+1):
-    #     stacked_H = np.block([[H] for _ in range(sens)])
-    #     stacked_R = np.block([[R+Z if c==r else Z for c in range(sens)] for r in range(sens)])
-    #     f = estmtn.KFilter(n, sens*m, F, Q, stacked_H, stacked_R, init_state, init_cov)
-    #     filters_unpriv_varying_sensors.append(f)
-    # #est_filter_unprivileged_zs = est.KFilter(n, 2*m, F, Q, H2, R2+added_noise_cov_corr, init_state, init_cov)
-    # #est_filter_fused_unprivileged_zs = est.KFilter(n, m, F, Q, H, R+fused_added_noise_cov, init_state, init_cov)
+        priv_filters_j_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1))
+        priv_filters_all_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, num_sensors))
 
     # Simulation
     sim_runs = 1000
@@ -110,54 +94,42 @@ def main():
             sim.gt.append(gt)
 
             # Generate correlated noise
-            
+            std_normals = np.block([g[1].next_n_as_std_gaussian(m) for g in generator_pairs])
+            correlated_noises = np.linalg.cholesky(sensor_correlated_covariance)@std_normals
 
             # Make all measurements and add pseudorandom noises
             zs = []
             for sen in range(num_sensors):
-                zs.append(sensors[sen].measure(gt))
-                # TODO add noises here
+                true_z = sensors[sen].measure(gt)
+                z = true_z + correlated_noises[sen*m:sen*m+m]
+                zs.append(z)
             sim.zs.append(zs)
 
+            # Unprivileged filter estimate
+            unpriv_filter.predict()
+            res = unpriv_filter.update(zs)
+            sim.unpriv_filter_results.append(res)
 
+            # Privileged and additional measurement privileged filters' estimates
+            j_ms_results = []
+            all_ms_results = []
+            for j in range(num_sensors):
+                priv_filters_j_ms[j].predict()
+                res_j = priv_filters_j_ms[j].update(zs[:j+1])
+                j_ms_results.append(res_j)
 
-            # # Privileged filter on true measurements
-            # filter_priv.predict()
-            # for sen in range(num_sensors):
-            #     filter_priv.update(zs[sen])
-            # filter_priv_ests.append((filter_priv.x, filter_priv.P))
-
-            # # Privileged estimators for varying number of sensors
-            # priv_ests = []
-            # for sen in range(num_sensors):
-            #     filters_priv_varying_sensors[sen].predict()
-            #     filters_priv_varying_sensors[sen].update(np.block([z for z in zs[:sen+1]]))
-            #     priv_ests.append((filters_priv_varying_sensors[sen].x, filters_priv_varying_sensors[sen].P))
-            # filters_priv_ests.append(priv_ests)
-
-            # # Add same Gaussian noise to all measurements
-            # noise = np.random.multivariate_normal(np.zeros(2), Z)
-            # noised_zs = []
-            # for sen in range(num_sensors):
-            #     noised_zs.append(zs[sen] + noise)
+                priv_filters_all_ms[j].predict()
+                res_all = priv_filters_all_ms[j].update(zs)
+                all_ms_results.append(res_all)
             
-            # # Unprivileged estimators for varying number of sensors
-            # unpriv_ests = []
-            # for sen in range(num_sensors):
-            #     filters_unpriv_varying_sensors[sen].predict()
-            #     filters_unpriv_varying_sensors[sen].update(np.block([z for z in noised_zs[:sen+1]]))
-            #     unpriv_ests.append((filters_unpriv_varying_sensors[sen].x, filters_unpriv_varying_sensors[sen].P))
-            # filters_unpriv_ests.append(unpriv_ests)
-
-            # z1 = z1 + corr_noise[:2]
-            # z2 = z2 + corr_noise[2:]
-            # z_fused = fuse_correlated_estimates(z1, z2, (R2+added_noise_cov_corr)[:2,:2], (R2+added_noise_cov_corr)[:2,:2], (R2+added_noise_cov_corr)[:2,2:])
-            # est_filter_fused_unprivileged_zs.predict()
-            # e = est_filter_fused_unprivileged_zs.update(z_fused)
-            # filter_fused.append(e)
+            sim.priv_filters_j_ms_results.append(j_ms_results)
+            sim.priv_filters_all_ms_results.append(all_ms_results)
     
+    # Average simulations
+    avg_sim = SimData.average_sims(sims)
 
-        
+    # Plot simulations
+
     return
 
 # Run main
