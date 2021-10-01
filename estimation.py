@@ -111,29 +111,33 @@ class PrivFusionFilter(KFilter):
 
         self.single_m = m
         self.privilege = len(generators)
-        # TODO how about unprivielged - should be modfying stacked_R!
-        self.correlated_noise_covariance = np.block([[Z+Y if c==r else Z for c in range(self.privilege)] for r in range(self.privilege)])
+        self.correlated_noise_covariance = None
+        if self.privilege > 0:
+            self.correlated_noise_covariance = np.block([[Z+Y if c==r else Z for c in range(self.privilege)] for r in range(self.privilege)])
 
-        stacked_H = np.block([H for _ in num_measurements])
+        stacked_H = np.block([[H] for _ in range(num_measurements)])
         # TODO modified stacked_R when num_measurements > len(generators)
-        stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in num_measurements] for r in num_measurements])
+        stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in range(num_measurements)] for r in range(num_measurements)])
         stacked_m = m*num_measurements
 
         super().__init__(n, stacked_m, F, Q, stacked_H, stacked_R, init_state, init_cov)
         return
     
     def update(self, measurements):
-        # Generate the known noises
-        std_normals = np.block([g.next_n_as_std_gaussian(self.single_m) for g in self.generators])
-        correlated_noises = np.linalg.cholesky(self.correlated_noise_covariance)@std_normals
+        # Only generate noises if holding any keys
+        if self.privilege > 0:
 
-        # Remove the noises from the recieved measurements
-        padding = np.array([0 for _ in range(self.num_measurements - self.privilege)])
-        padded_correlated_noises = np.block([correlated_noises, padding])
-        denoised_measurments = measurements - padded_correlated_noises
+            # Generate the known noises
+            std_normals = np.block([g.next_n_as_std_gaussian(self.single_m) for g in self.generators])
+            correlated_noises = np.linalg.cholesky(self.correlated_noise_covariance)@std_normals
+
+            # Remove the noises from the recieved measurements
+            padding = np.array([0 for _ in range(self.single_m*(self.num_measurements - self.privilege))])
+            padded_correlated_noises = np.block([correlated_noises, padding])
+            measurements = measurements - padded_correlated_noises
 
         # Run filter udpate
-        super().update(denoised_measurments)
+        super().update(measurements)
         return self.x, self.P
 
 

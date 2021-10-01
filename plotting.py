@@ -36,6 +36,21 @@ def plot_state_cov(plotter, state_covariance, state, **kwargs):
     return plotter.add_artist(ellipse)
 
 
+def plot_single_sim(sim_data):
+    fig = plt.figure()
+    ax_sim = fig.add_subplot(121)
+    ax_trace = fig.add_subplot(122)
+
+    colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    colour_map = plt.cm.get_cmap('plasma_r')
+
+    # Unpriv
+
+    # Priv only denoised
+
+    # Priv all
+
+    return
 
 
 
