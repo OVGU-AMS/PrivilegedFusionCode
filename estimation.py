@@ -115,10 +115,34 @@ class PrivFusionFilter(KFilter):
         if self.privilege > 0:
             self.correlated_noise_covariance = np.block([[Z+Y if c==r else Z for c in range(self.privilege)] for r in range(self.privilege)])
 
-        stacked_H = np.block([[H] for _ in range(num_measurements)])
-        # TODO modified stacked_R when num_measurements > len(generators)
-        stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in range(num_measurements)] for r in range(num_measurements)])
         stacked_m = m*num_measurements
+        stacked_H = np.block([[H] for _ in range(num_measurements)])
+
+        self.num_unpriv_measurements = self.num_measurements - self.privilege
+
+        # Unprivileged
+        if self.num_unpriv_measurements == self.num_measurements:
+            stacked_R = np.block([[R+Z+Y if c==r else Z for c in range(self.num_measurements)] for r in range(self.num_measurements)])
+        
+        # Privileged
+        elif self.num_unpriv_measurements == 0:
+            stacked_R = np.block([[R if c==r else np.zeros((2,2)) for c in range(num_measurements)] for r in range(num_measurements)])
+        
+        # Privileged with additional measurements
+        else:
+            priv_cov = np.block([[R if c==r else np.zeros((2,2)) for c in range(self.privilege)] for r in range(self.privilege)])
+
+            known_noise_cov = np.block([[Z+Y if c==r else Z for c in range(self.privilege)] for r in range(self.privilege)])
+            unknown_noise_cov = np.block([[Z+Y if c==r else Z for c in range(self.num_unpriv_measurements)] for r in range(self.num_unpriv_measurements)])
+            known_unknown_cross_cov = np.block([[Z for _ in range(self.num_unpriv_measurements)] for _ in range(self.privilege)])
+
+            self.unknown_additive_noise_offset = known_unknown_cross_cov.T@np.linalg.inv(known_noise_cov)
+
+            unpriv_cov = unknown_noise_cov - known_unknown_cross_cov.T@np.linalg.inv(known_noise_cov)@known_unknown_cross_cov
+            unpriv_cov = unpriv_cov + np.block([[R if c==r else np.zeros((2,2)) for c in range(self.num_unpriv_measurements)] for r in range(self.num_unpriv_measurements)])
+
+            independent_cross_cov = np.block([[np.zeros((2,2)) for _ in range(self.num_unpriv_measurements)] for _ in range(self.privilege)])
+            stacked_R = np.block([[priv_cov, independent_cross_cov],[independent_cross_cov.T, unpriv_cov]])
 
         super().__init__(n, stacked_m, F, Q, stacked_H, stacked_R, init_state, init_cov)
         return
@@ -131,10 +155,12 @@ class PrivFusionFilter(KFilter):
             std_normals = np.block([g.next_n_as_std_gaussian(self.single_m) for g in self.generators])
             correlated_noises = np.linalg.cholesky(self.correlated_noise_covariance)@std_normals
 
+            if self.num_unpriv_measurements > 0:
+                padding = self.unknown_additive_noise_offset@correlated_noises
+                correlated_noises = np.block([correlated_noises, padding])
+
             # Remove the noises from the recieved measurements
-            padding = np.array([0 for _ in range(self.single_m*(self.num_measurements - self.privilege))])
-            padded_correlated_noises = np.block([correlated_noises, padding])
-            measurements = measurements - padded_correlated_noises
+            measurements = measurements - correlated_noises
 
         # Run filter udpate
         super().update(measurements)

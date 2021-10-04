@@ -11,18 +11,18 @@ class SimData:
         self.gt = []
         self.zs = dict(((s, []) for s in range(num_sensors)))
         self.unpriv_filter_results = []
-        self.priv_filters_j_ms_results = dict(((p, []) for p in range(num_sensors-1)))
-        self.priv_filters_all_ms_results = dict(((p, []) for p in range(num_sensors-1)))
+        self.priv_filters_j_ms_results = dict(((p, []) for p in range(num_sensors)))
+        self.priv_filters_all_ms_results = dict(((p, []) for p in range(num_sensors)))
         return
     
     def compute_errors(self):
-        sim_len = len(self.gt)
+        self.sim_len = len(self.gt)
         self.priv_filters_j_ms_errors = {}
         self.priv_filters_all_ms_errors = {}
 
         for p in range(self.num_sensors-1):
-            self.priv_filters_j_ms_errors[p] = [np.linalg.norm(self.priv_filters_j_ms_results[p][i][0] - self.gt[i]) for i in range(sim_len)]
-            self.priv_filters_all_ms_errors[p] = [np.linalg.norm(self.priv_filters_all_ms_results[p][i][0] - self.gt[i]) for i in range(sim_len)]
+            self.priv_filters_j_ms_errors[p] = [np.linalg.norm(self.priv_filters_j_ms_results[p][i][0] - self.gt[i]) for i in range(self.sim_len)]
+            self.priv_filters_all_ms_errors[p] = [np.linalg.norm(self.priv_filters_all_ms_results[p][i][0] - self.gt[i]) for i in range(self.sim_len)]
 
         return
 
@@ -97,13 +97,13 @@ def main():
     unpriv_filter = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, [], num_sensors)
     priv_filters_j_ms = []
     priv_filters_all_ms = []
-    for j in range(num_sensors-1):
+    for j in range(num_sensors):
         gens = [g[0] for g in generator_pairs[:j+1]]
         priv_filters_j_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, j+1))
         priv_filters_all_ms.append(estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z, Y, gens, num_sensors))
 
     # Simulation
-    sim_runs = 5
+    sim_runs = 1
     sim_steps = 100
     sims = []
     for s in range(sim_runs):
@@ -137,7 +137,7 @@ def main():
             sim.unpriv_filter_results.append(res)
 
             # Privileged and additional measurement privileged filters' estimates
-            for j in range(num_sensors-1):
+            for j in range(num_sensors):
                 priv_filters_j_ms[j].predict()
                 res_j = priv_filters_j_ms[j].update(np.block(zs[:j+1]))
                 sim.priv_filters_j_ms_results[j].append(res_j)
@@ -148,6 +148,7 @@ def main():
     
         # Compute errors of the filters
         sim.compute_errors()
+        #pltng.plot_single_sim(sim)
 
     # Average simulations
     avg_sim_data = AvgSimData(sims)

@@ -44,11 +44,37 @@ def plot_single_sim(sim_data):
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     colour_map = plt.cm.get_cmap('plasma_r')
 
+    # Ground truth
+    ax_sim.plot([x[0] for x in sim_data.gt], [x[2] for x in sim_data.gt], c='lightgray', linestyle='-', linewidth=1.0)
+
+    # Nosied measurements
+    for s in range(sim_data.num_sensors):
+        ax_sim.scatter([x[0] for x in sim_data.zs[s]], [x[1] for x in sim_data.zs[s]], c=colours[s], marker='.', s=1.0)
+
     # Unpriv
+    ax_sim.plot([x[0][0] for x in sim_data.unpriv_filter_results], [x[0][2] for x in sim_data.unpriv_filter_results], c='black', linestyle='-', linewidth=1.0)
+    for i in range(sim_data.sim_len):
+        if i % 10 == 0:
+            plot_state_cov(ax_sim, sim_data.unpriv_filter_results[i][1], sim_data.unpriv_filter_results[i][0], color='black', fill=False, linestyle='-', linewidth=1.0)
+    ax_trace.plot([x for x in range(sim_data.sim_len)], [np.trace(x[1]) for x in sim_data.unpriv_filter_results], c='black', linestyle='-', linewidth=1.0)
 
     # Priv only denoised
+    for s in range(sim_data.num_sensors):
+        clr = colour_map((s+1)/sim_data.num_sensors)
+        ax_sim.plot([x[0][0] for x in sim_data.priv_filters_j_ms_results[s]], [x[0][2] for x in sim_data.priv_filters_j_ms_results[s]], c=clr, linestyle='-', linewidth=1.0)
+        for i in range(sim_data.sim_len):
+            plot_state_cov(ax_sim, sim_data.priv_filters_j_ms_results[s][i][1], sim_data.priv_filters_j_ms_results[s][i][0], color=clr, fill=False, linestyle='-', linewidth=1.0)
+        ax_trace.plot([x for x in range(sim_data.sim_len)], [np.trace(x[1]) for x in sim_data.priv_filters_j_ms_results[s]], c=clr, linestyle='-', linewidth=1.0)
 
     # Priv all
+    for s in range(sim_data.num_sensors):
+        clr = colour_map((s+1)/sim_data.num_sensors)
+        ax_sim.plot([x[0][0] for x in sim_data.priv_filters_all_ms_results[s]], [x[0][2] for x in sim_data.priv_filters_all_ms_results[s]], c=clr, linestyle='--', linewidth=1.0)
+        for i in range(sim_data.sim_len):
+            plot_state_cov(ax_sim, sim_data.priv_filters_all_ms_results[s][i][1], sim_data.priv_filters_all_ms_results[s][i][0], color=clr, fill=False, linestyle='--', linewidth=1.0)
+        ax_trace.plot([x for x in range(sim_data.sim_len)], [np.trace(x[1]) for x in sim_data.priv_filters_all_ms_results[s]], c=clr, linestyle='--', linewidth=1.0)
+
+    plt.show()
 
     return
 
