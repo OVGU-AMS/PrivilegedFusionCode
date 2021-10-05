@@ -3,8 +3,45 @@
 """
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+
+
+
+def init_matplotlib_params(save_not_show_fig, show_latex_fig):
+    fontsize = 8
+    linewidth = 1.0
+    gridlinewidth = 0.7
+
+    # Global changes
+    matplotlib.rcParams.update({
+            # Fonts
+            'font.size': fontsize,
+            'axes.titlesize': fontsize,
+            'axes.labelsize': fontsize,
+            'xtick.labelsize': fontsize,
+            'ytick.labelsize': fontsize,
+            'legend.fontsize': fontsize,
+            'figure.titlesize': fontsize,
+            # Line width
+            'lines.linewidth': linewidth,
+            'grid.linewidth': gridlinewidth
+        })
+
+    # Backend if saving
+    if save_not_show_fig:
+        matplotlib.use("pgf")
+
+    # Font if saving or ploting in tex mode
+    if save_not_show_fig or show_latex_fig:
+        matplotlib.rcParams.update({
+            "pgf.texsystem": "pdflatex",   
+            'font.family': 'serif',         # Use serif/main font for text elements
+            'text.usetex': True,            # Use inline maths for ticks
+            'pgf.rcfonts': False,           # Don't setup fonts from matplotlib rc params
+        })
+    return
 
 # From https://scipython.com/book/chapter-7-matplotlib/examples/bmi-data-with-confidence-ellipses/
 def get_cov_ellipse(cov, centre, nstd, **kwargs):
@@ -25,8 +62,8 @@ def get_cov_ellipse(cov, centre, nstd, **kwargs):
 
     # Width and height of ellipse to draw
     width, height = 2 * nstd * np.sqrt(eigvals) # eigvals positive because covariance is positive semi definite
-    return Ellipse(xy=centre, width=width, height=height,
-                   angle=np.degrees(theta), **kwargs)
+    return Ellipse(xy=centre, width=width, height=height, angle=np.degrees(theta), **kwargs)
+
 
 def plot_state_cov(plotter, state_covariance, state, **kwargs):
     state_2d = np.array([state[0], state[2]])
@@ -75,6 +112,50 @@ def plot_single_sim(sim_data):
         ax_trace.plot([x for x in range(sim_data.sim_len)], [np.trace(x[1]) for x in sim_data.priv_filters_all_ms_results[s]], c=clr, linestyle='--', linewidth=1.0)
 
     plt.show()
+    return
+
+
+def plot_privilege_differences(avg_sim_data, save_not_show, show_as_tex):
+    init_matplotlib_params(save_not_show, show_as_tex)
+
+    # TODO figure size for paper
+    fig = plt.figure()
+
+    ax_priv_1 = fig.add_subplot(221)
+    ax_priv_2 = fig.add_subplot(222)
+    ax_priv_3 = fig.add_subplot(223)
+    ax_priv_4 = fig.add_subplot(224)
+
+    # TODO adjust subplots (sizing)
+
+    # Colours
+    colour_map = plt.cm.get_cmap('plasma_r')
+
+    # Unpriv in each plot
+    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+
+    # Priv only denoised at each privilege
+    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[0]], linestyle='--', c=colour_map(1/4))
+    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[1]], linestyle='--', c=colour_map(2/4))# TODO looks wrong
+    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[2]], linestyle='--', c=colour_map(3/4))
+    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[3]], linestyle='--', c=colour_map(4/4))
+
+    # Priv all at each privilege
+    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[0]], linestyle='-', c=colour_map(1/4))
+    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[1]], linestyle='-', c=colour_map(2/4))
+    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[2]], linestyle='-', c=colour_map(3/4))
+    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[3]], linestyle='-', c=colour_map(4/4))
+
+    # TODO legend
+
+    # Save or show picture
+    if save_not_show:
+        plt.savefig('pictures/privilege_differences.pdf')
+    else:
+        plt.show()
 
     return
 
