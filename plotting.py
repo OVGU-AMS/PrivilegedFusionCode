@@ -118,53 +118,69 @@ def plot_single_sim(sim_data):
 def plot_privilege_differences(avg_sim_data, save_not_show, show_as_tex):
     init_matplotlib_params(save_not_show, show_as_tex)
 
-    # TODO figure size for paper
-    fig = plt.figure()
-
-    ax_priv_1 = fig.add_subplot(221)
-    ax_priv_2 = fig.add_subplot(222)
-    ax_priv_3 = fig.add_subplot(223)
-    ax_priv_4 = fig.add_subplot(224)
-
-    # TODO adjust subplots (sizing)
+    # TODO choose layout and adjust subplots (sizing)
+    fig, axes = plt.subplots(2, 2, figsize=(3.4, 4), sharex=True, sharey=True)
 
     # Colours
     colour_map = plt.cm.get_cmap('plasma_r')
 
-    # Unpriv in each plot
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
-    # TEMP
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
+    unpriv_plots = []
+    priv_denoised_plots = []
+    priv_all_plots = []
 
-    # Priv only denoised at each privilege
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[0]], linestyle='--', c=colour_map(1/4))
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[1]], linestyle='--', c=colour_map(2/4))# TODO looks wrong
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[2]], linestyle='--', c=colour_map(3/4))
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[3]], linestyle='--', c=colour_map(4/4))
-    # TEMP
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[0]], linestyle='--', c=colour_map(1/4))
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[1]], linestyle='--', c=colour_map(2/4))# TODO looks wrong
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[2]], linestyle='--', c=colour_map(3/4))
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[3]], linestyle='--', c=colour_map(4/4))
+    # Loop and make the plots
+    for i,ax in enumerate(axes.flat):
+        # TODO change to fit layout and paper notation
+        ax.set_title(r'Estimation with $%d$ key%s $(j=%d)$' % (i+1, '' if i==0 else 's', i+1))
 
-    # Priv all at each privilege
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[0]], linestyle='-', c=colour_map(1/4))
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[1]], linestyle='-', c=colour_map(2/4))
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[2]], linestyle='-', c=colour_map(3/4))
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[3]], linestyle='-', c=colour_map(4/4))
-    # TEMP
-    ax_priv_1.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[0]], linestyle='-', c=colour_map(1/4))
-    ax_priv_2.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[1]], linestyle='-', c=colour_map(2/4))# TODO looks wrong
-    ax_priv_3.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[2]], linestyle='-', c=colour_map(3/4))
-    ax_priv_4.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[3]], linestyle='-', c=colour_map(4/4))
+        # Unpriv in each plot
+        u, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+        # Unpriv trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
+        
+        # Priv only denoised at each privilege
+        pd, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[i]], linestyle='--', c=colour_map((i+1)/4))
+        # Priv only denoised trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[i]], linestyle='--', c=colour_map((i+1)/4))
 
-    # TODO legend
+        # Priv all at each privilege
+        pa, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[i]], linestyle='-', c=colour_map((i+1)/4))
+        # Priv all trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[i]], linestyle='-', c=colour_map((i+1)/4))
+
+        unpriv_plots.append(u)
+        priv_denoised_plots.append(pd)
+        priv_all_plots.append(pa)
+
+    # TODO fix legend (either per-graph or tight fitting figure legend)
+    # Legend
+    fig.legend((unpriv_plots[0], 
+                priv_denoised_plots[0], 
+                priv_all_plots[0],
+                priv_denoised_plots[1],
+                priv_all_plots[1],
+                priv_denoised_plots[2],
+                priv_all_plots[2],
+                priv_all_plots[3]), 
+               (r'$(0,4)$ (unprivileged)',
+                r'$(4,4)$ (fully privileged)', 
+                r'$(1,1)$', 
+                r'$(1,4)$',
+                r'$(2,2)$',
+                r'$(2,4)$',
+                r'$(3,3)$',
+                r'$(3,4)$'), loc='upper center', ncol=4)
+
+    # Shared axis labels
+    fig.supxlabel(r'Simulation Time')   
+    fig.supylabel(r'Mean Squared Error (MSE)')
+
+    # TODO hide ticks according to set layout
+    # Hide relevant axis ticks
+    for a in [axes[0][0], axes[0][1]]:
+        a.tick_params(bottom=False)
+    for a in [axes[0][1], axes[1][1]]:
+        a.tick_params(left=False)
 
     # Save or show picture
     if save_not_show:
