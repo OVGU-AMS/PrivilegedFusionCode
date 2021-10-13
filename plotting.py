@@ -73,7 +73,7 @@ def plot_state_cov(plotter, state_covariance, state, **kwargs):
     return plotter.add_artist(ellipse)
 
 
-def plot_single_sim(sim_data):
+def plot_single_priv_sim(sim_data):
     fig = plt.figure()
     ax_sim = fig.add_subplot(121)
     ax_trace = fig.add_subplot(122)
@@ -191,72 +191,77 @@ def plot_privilege_differences(avg_sim_data, save_not_show, show_as_tex):
     return
 
 
+def plot_parameter_differences(avg_sim_data, save_not_show, show_as_tex):
+    init_matplotlib_params(save_not_show, show_as_tex)
 
-    # # For plotting
-    # fig = plt.figure()
-    # ax_sim = fig.add_subplot(121)
-    # ax_trace = fig.add_subplot(122)
-    # gts = []
-    # all_zs = []
-    # #filter_priv_ests = []
-    # filters_priv_ests = []
-    # filters_unpriv_ests = []
-    # #filter_fused = []
-    # colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    # colour_map = plt.cm.get_cmap('plasma_r')
+    # TODO choose layout and adjust subplots (sizing)
+    fig, axes = plt.subplots(2, 2, figsize=(3.4, 4), sharex=True, sharey=True)
 
+    # Colours
+    colour_map = plt.cm.get_cmap('plasma_r')
 
-    #     # Plotting
+    unpriv_plots = []
+    priv_denoised_plots = []
+    priv_all_plots = []
 
-    # # Ground truth
-    # ax_sim.plot([x[0] for x in gts], [x[2] for x in gts], c='gray', linestyle='-', linewidth=1.0)
+    # Loop and make the plots
+    for i,ax in enumerate(axes.flat):
+        # TODO change to fit layout and paper notation
+        ax.set_title(r'Estimation with $%d$ key%s $(j=%d)$' % (i+1, '' if i==0 else 's', i+1))
 
-    # # Sensors
-    # for sen in range(num_sensors):
-    #     rel_zs = [z[sen] for z in all_zs]
-    #     ax_sim.scatter([x[0] for x in rel_zs], [x[1] for x in rel_zs], c='orange', marker='.', s=1.0)
+        # Unpriv in each plot
+        u, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.unpriv_filter_errors_avg], linestyle='-', c='black')
+        # Unpriv trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.unpriv_filter_results], linestyle='-', c='black')
+        
+        # Priv only denoised at each privilege
+        pd, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[i]], linestyle='--', c=colour_map((i+1)/4))
+        # Priv only denoised trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_j_ms_results[i]], linestyle='--', c=colour_map((i+1)/4))
 
-    # # # Privileged filter
-    # # ax_sim.plot([x[0][0] for x in filter_priv_ests], [x[0][2] for x in filter_priv_ests], c='green', linestyle='-', linewidth=1.0)
-    # # plot_cntr = 0
-    # # for x,P in filter_priv_ests:
-    # #     plot_cntr += 1
-    # #     if plot_cntr % 5 == 0:
-    # #         plot_state_cov(ax_sim, P, x, color='green', fill=False, linestyle='-', linewidth=1.0)
-    # # ax_trace.plot([i for i in range(sim_steps)], [np.trace(x[1]) for x in filter_priv_ests], c='green', linestyle='-', linewidth=1.0)
+        # Priv all at each privilege
+        pa, = ax.plot([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[i]], linestyle='-', c=colour_map((i+1)/4))
+        # Priv all trace (to check the average MSE above is correct)
+        ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[i]], linestyle='-', c=colour_map((i+1)/4))
 
-    # # Privileged filters
-    # for sen in range(num_sensors):
-    #     fil = [x[sen] for x in filters_priv_ests]
-    #     clr = colour_map((sen+1)/num_sensors)
-    #     # clr = colours[sen % len(colours)]
-    #     ax_sim.plot([x[0][0] for x in fil], [x[0][2] for x in fil], linestyle=(0, (5, 1)), linewidth=1.0, c=clr)
-    #     plot_cntr = 0
-    #     for x,P in fil:
-    #         plot_cntr += 1
-    #         if plot_cntr % 5 == 0:
-    #             plot_state_cov(ax_sim, P, x, fill=False, linestyle=(0, (5, 1)), linewidth=1.0, color=clr)
-    #     ax_trace.plot([i for i in range(sim_steps)], [np.trace(x[1]) for x in fil], linestyle=(0, (5, 1)), linewidth=1.0, c=clr)
-    
-    # # Unprivileged filters
-    # for sen in range(num_sensors):
-    #     fil = [x[sen] for x in filters_unpriv_ests]
-    #     clr = colour_map((sen+1)/num_sensors)
-    #     # clr = colours[sen % len(colours)]
-    #     ax_sim.plot([x[0][0] for x in fil], [x[0][2] for x in fil], linestyle='-', linewidth=1.0, c=clr)
-    #     plot_cntr = 0
-    #     for x,P in fil:
-    #         plot_cntr += 1
-    #         if plot_cntr % 5 == 0:
-    #             plot_state_cov(ax_sim, P, x, fill=False, linestyle='-', linewidth=1.0, color=clr)
-    #     ax_trace.plot([i for i in range(sim_steps)], [np.trace(x[1]) for x in fil], linestyle='-', linewidth=1.0, c=clr)
-    
-    # # # Fused filter
-    # # ax_sim.plot([x[0][0] for x in filter_fused], [x[0][2] for x in filter_fused], c='blue', linestyle='-', linewidth=1.0)
-    # # plot_cntr = 0
-    # # for x,P in filter_fused:
-    # #     plot_cntr += 1
-    # #     if plot_cntr % 5 == 0:
-    # #         plot_state_cov(ax_sim, P, x, color='blue', fill=False, linestyle='-', linewidth=1.0)
+        unpriv_plots.append(u)
+        priv_denoised_plots.append(pd)
+        priv_all_plots.append(pa)
 
-    # plt.show()
+    # TODO fix legend (either per-graph or tight fitting figure legend)
+    # Legend
+    fig.legend((unpriv_plots[0], 
+                priv_denoised_plots[0], 
+                priv_all_plots[0],
+                priv_denoised_plots[1],
+                priv_all_plots[1],
+                priv_denoised_plots[2],
+                priv_all_plots[2],
+                priv_all_plots[3]), 
+               (r'$(0,4)$ (unprivileged)',
+                r'$(4,4)$ (fully privileged)', 
+                r'$(1,1)$', 
+                r'$(1,4)$',
+                r'$(2,2)$',
+                r'$(2,4)$',
+                r'$(3,3)$',
+                r'$(3,4)$'), loc='upper center', ncol=4)
+
+    # Shared axis labels
+    fig.supxlabel(r'Simulation Time')   
+    fig.supylabel(r'Mean Squared Error (MSE)')
+
+    # TODO hide ticks according to set layout
+    # Hide relevant axis ticks
+    for a in [axes[0][0], axes[0][1]]:
+        a.tick_params(bottom=False)
+    for a in [axes[0][1], axes[1][1]]:
+        a.tick_params(left=False)
+
+    # Save or show picture
+    if save_not_show:
+        plt.savefig('pictures/privilege_differences.pdf')
+    else:
+        plt.show()
+
+    return
