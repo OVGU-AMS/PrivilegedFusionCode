@@ -5,19 +5,38 @@ import estimation as estmtn
 import key_stream as kystrm
 
 
-SIM_RUNS = 10
+SIM_RUNS = 20
 SIM_STEPS = 100
-PROGRESS_PRINTS = 1
+PROGRESS_PRINTS = 5
+SHOW_SINGLE_SIM_PLOT = False
 MAKE_PRIV_PLOT = False
 MAKE_PARAM_PLOT = True
 
 
+"""
+ 
+  .d8888b. 8888888 888b     d888      8888888b.        d8888 88888888888     d8888 
+ d88P  Y88b  888   8888b   d8888      888  "Y88b      d88888     888        d88888 
+ Y88b.       888   88888b.d88888      888    888     d88P888     888       d88P888 
+  "Y888b.    888   888Y88888P888      888    888    d88P 888     888      d88P 888 
+     "Y88b.  888   888 Y888P 888      888    888   d88P  888     888     d88P  888 
+       "888  888   888  Y8P  888      888    888  d88P   888     888    d88P   888 
+ Y88b  d88P  888   888   "   888      888  .d88P d8888888888     888   d8888888888 
+  "Y8888P" 8888888 888       888      8888888P" d88P     888     888  d88P     888 
+                                                                                   
+                                                                                   
+                                                                                   
+ 
+"""
+
 class PrivilegeSimData:
     def __init__(self, ident, num_sensors):
+        # Store general simulation information
         self.ident = ident
         self.num_sensors = num_sensors
         self.gt = []
         self.zs = dict(((s, []) for s in range(num_sensors)))
+        # Results from unprivileged and privileged filters for all the privileges considered
         self.unpriv_filter_results = []
         self.priv_filters_j_ms_results = dict(((p, []) for p in range(num_sensors)))
         self.priv_filters_all_ms_results = dict(((p, []) for p in range(num_sensors)))
@@ -26,8 +45,10 @@ class PrivilegeSimData:
     def compute_errors(self):
         self.sim_len = len(self.gt)
         
+        # Compute unprivileged errors
         self.unpriv_filter_errors = [np.linalg.norm(self.unpriv_filter_results[i][0] - self.gt[i])**2 for i in range(self.sim_len)]
 
+        # Compute privileges errors for all privileges considered
         self.priv_filters_j_ms_errors = {}
         self.priv_filters_all_ms_errors = {}
         for p in range(self.num_sensors):
@@ -38,14 +59,15 @@ class PrivilegeSimData:
 
 class AvgPrivilegeSimData:
     def __init__(self, sim_list):
+        # Copy general information from the first simulation
         self.num_sensors = sim_list[0].num_sensors
         self.sim_len = sim_list[0].sim_len
 
-        # Used to be able to plot covariance trace as a comparison
+        # Save first simulation to be able to plot covariance trace as a comparison (doesn't matter which sim is actually saved)
         self.last_sim = sim_list[0]
 
+        # Average the results of unprivileged and privileged filters for all the privileges considered
         self.unpriv_filter_errors_avg = np.mean([s.unpriv_filter_errors for s in sim_list], axis=0)
-
         self.priv_filters_j_ms_errors_avg = {}
         self.priv_filters_all_ms_errors_avg = {}
         for p in range(self.num_sensors):
@@ -56,13 +78,16 @@ class AvgPrivilegeSimData:
 
 class ParameterSimData:
     def __init__(self, ident, num_sensors, Ys, Zs):
+        # Store general simulation information
         self.ident = ident
         self.num_sensors = num_sensors
         self.gt = []
 
+        # Store the parameter values that will be varied
         self.Ys = Ys
         self.Zs = Zs
 
+        # As params are varied, store all measurements, unprivielged and privileged filters' estimates in a 2-D dictionary of parameters
         self.zs = {}
         self.unpriv_filters_results = {}
         self.priv_filters_j_ms_results = {}
@@ -83,6 +108,7 @@ class ParameterSimData:
     def compute_errors(self):
         self.sim_len = len(self.gt)
 
+        # Compute errors of unprivileged, privileged with denoised measurements only and privileged with all measuremets filters, for all parameter combinations
         self.unpriv_filters_errors = {}
         self.priv_filters_j_ms_errors = {}
         self.priv_filters_all_ms_errors = {}
@@ -101,14 +127,16 @@ class ParameterSimData:
 
 class AvgParameterSimData:
     def __init__(self, sim_list):
+        # Copy general information from the first simulation
         self.num_sensors = sim_list[0].num_sensors
         self.sim_len = sim_list[0].sim_len
         self.Ys = sim_list[0].Ys
         self.Zs = sim_list[0].Zs
 
-        # Used to be able to plot covariance trace as a comparison
+        # Save first simulation to be able to plot covariance trace as a comparison (doesn't matter which sim is actually saved)
         self.last_sim = sim_list[0]
 
+        # Compute average errors of all considered filters for all parameter combinations
         self.unpriv_filters_errors_avg = {}
         self.priv_filters_j_ms_errors_avg = {}
         self.priv_filters_all_ms_errors_avg = {}
@@ -122,6 +150,21 @@ class AvgParameterSimData:
                 self.priv_filters_all_ms_errors_avg[Y][Z] = np.mean([s.priv_filters_all_ms_errors[Y][Z] for s in sim_list], axis=0)
         return
 
+"""
+ 
+ 888b     d888        d8888 8888888 888b    888 
+ 8888b   d8888       d88888   888   8888b   888 
+ 88888b.d88888      d88P888   888   88888b  888 
+ 888Y88888P888     d88P 888   888   888Y88b 888 
+ 888 Y888P 888    d88P  888   888   888 Y88b888 
+ 888  Y8P  888   d88P   888   888   888  Y88888 
+ 888   "   888  d8888888888   888   888   Y8888 
+ 888       888 d88P     888 8888888 888    Y888 
+                                                
+                                                
+                                                
+ 
+"""
 
 def main():
     # State dimension
@@ -163,11 +206,6 @@ def main():
     # Number of present sensors
     num_sensors = 4
 
-    # Pseudorandom correleated and uncorrelated covariances
-    Z = 10*np.eye(2)
-    Y = 8*np.eye(2)
-    sensor_correlated_covariance = np.block([[Z+Y if r==c else Z for c in range(num_sensors)] for r in range(num_sensors)])
-
     """
     
     8888888b.  8888888b.  8888888 888     888       .d8888b. 8888888 888b     d888 
@@ -187,13 +225,21 @@ def main():
         sims = []
         print("\nMaking Privilege Plot ...\n")
         for s in range(SIM_RUNS):
+            # Progress printing
             if s % PROGRESS_PRINTS == 0:
                 print("Running Simulation %d ..." % s)
+            
+            # Pseudorandom correleated and uncorrelated covariances
+            Z = 10*np.eye(2)
+            Y = 8*np.eye(2)
+            sensor_correlated_covariance = np.block([[Z+Y if r==c else Z for c in range(num_sensors)] for r in range(num_sensors)])
+            
+            # Sim data storage
             sim = PrivilegeSimData(s, num_sensors)
             sims.append(sim)
 
             # Synced cryptographically random number generators. Makes exactly the amount of each required by the simulation.
-            # Made for each simulation to make popping from generator list easier
+            # Remade for each individual simulation to make popping from generator lists easier
             sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(1+2*num_sensors-2*s) for s in range(num_sensors)]
 
             # Creating simulation objects (ground truth, sensors and filters)
@@ -236,7 +282,7 @@ def main():
                 res = unpriv_filter.update(np.block(zs))
                 sim.unpriv_filter_results.append(res)
 
-                # Privileged and additional measurement privileged filters' estimates
+                # Privileged with denoised measurements only and with all measurements filters' estimates
                 for j in range(num_sensors):
                     priv_filters_j_ms[j].predict()
                     res_j = priv_filters_j_ms[j].update(np.block(zs[:j+1]))
@@ -249,9 +295,9 @@ def main():
             # Compute errors of the filters
             sim.compute_errors()
 
-            if s == SIM_RUNS-1:
+            # Print the final simulation if flag is set. Primarily for debugging
+            if SHOW_SINGLE_SIM_PLOT and s == SIM_RUNS-1:
                 pltng.plot_single_priv_sim(sim)
-                pass
 
         # Average simulations
         avg_sim_data = AvgPrivilegeSimData(sims)
@@ -279,19 +325,25 @@ def main():
         sims = []
         print("\nMaking Parameter Plot ...\n")
         for s in range(SIM_RUNS):
-            # Varying pseudorandom correlated and uncorrelated covariances
-            Ys = [5, 10]
-            Zs = [5, 10]
-
+            # Progress printing
             if s % PROGRESS_PRINTS == 0:
                 print("Running Simulation %d ..." % s)
+            
+            # Varying pseudorandom correlated and uncorrelated covariances
+            # TODO choose nicely for the sim
+            Ys = [2, 25]
+            Zs = [2, 25]
+
+            # Only one privilege (number of keys) considered in this plot
+            # TODO choose nicely for sim
+            fixed_privilege = 1
+
+            # Sim data storage
             sim = ParameterSimData(s, num_sensors, Ys, Zs)
             sims.append(sim)
 
-            fixed_privilege = 2
-
             # Synced cryptographically random number generators. Makes exactly the amount of each required by the simulation.
-            # Made for each simulation to make popping from generator list easier
+            # Remade for each individual simulation to make popping from generator lists easier
             sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(9-4*(s-(s%2))) for s in range(num_sensors)]
 
             # Creating simulation objects (ground truth, sensors and filters)
@@ -300,6 +352,7 @@ def main():
             for _ in range(num_sensors):
                 sensors.append(estmtn.SensorPure(n, m, H, R))
 
+            # As correlation parameters are being changed, store all filters and correlation matrices in 2-D dictionaries
             sensor_correlated_covariances = {}
             unpriv_filters = {}
             priv_filters_j_ms = {}
@@ -310,15 +363,19 @@ def main():
                 priv_filters_j_ms[Y] = {}
                 priv_filters_all_ms[Y] = {}
                 for Z in Zs:
+                    # Correlation matrix
                     Y_mat = Y*np.eye(2)
                     Z_mat = Z*np.eye(2)
                     sensor_correlated_covariances[Y][Z] = np.block([[Z_mat+Y_mat if r==c else Z_mat for c in range(num_sensors)] for r in range(num_sensors)])
 
+                    # Unpriv filter
                     unpriv_filters[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, [], num_sensors)
 
+                    # Priv filter, denoisable measurements only
                     gens = [g.pop() for g in sensor_generators[:fixed_privilege]]
                     priv_filters_j_ms[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
 
+                    # Priv filter, all measurements
                     gens = [g.pop() for g in sensor_generators[:fixed_privilege]]
                     priv_filters_all_ms[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, num_sensors)
 
@@ -332,14 +389,15 @@ def main():
                 # Generate noise
                 std_normals = np.block([g[0].next_n_as_std_gaussian(m) for g in sensor_generators])
 
+                # For each of the parameter combinations compute estimates accordingly
                 for Y in Ys:
                     for Z in Zs:
+                        # Variables names of ease of reading (and likeness to other plot)
                         sensor_correlated_covariance = sensor_correlated_covariances[Y][Z]
                         unpriv_filter = unpriv_filters[Y][Z]
 
                         # Correlate noise
                         correlated_noises = np.linalg.cholesky(sensor_correlated_covariance)@std_normals
-
 
                         # Make all measurements and add pseudorandom noises
                         zs = []
@@ -349,16 +407,17 @@ def main():
                             sim.zs[Y][Z][sen].append(z)
                             zs.append(z)
 
-                        # Unprivileged filter estimate
+                        # Unpriv filter estimate
                         unpriv_filter.predict()
                         res = unpriv_filter.update(np.block(zs))
                         sim.unpriv_filters_results[Y][Z].append(res)
 
-                        # Privileged and additional measurement privileged filters' estimates
+                        # Priv filter with denoise measurements only estimate
                         priv_filters_j_ms[Y][Z].predict()
                         res_j = priv_filters_j_ms[Y][Z].update(np.block(zs[:fixed_privilege]))
                         sim.priv_filters_j_ms_results[Y][Z].append(res_j)
 
+                        # Priv filter with all measurements estimate
                         priv_filters_all_ms[Y][Z].predict()
                         res_all = priv_filters_all_ms[Y][Z].update(np.block(zs))
                         sim.priv_filters_all_ms_results[Y][Z].append(res_all)
@@ -366,9 +425,9 @@ def main():
             # Compute errors of the filters
             sim.compute_errors()
 
-            if s == SIM_RUNS-1:
-                #pltng.plot_single_param_sim(sim)
-                pass
+            # Print the final simulation if flag is set. Primarily for debugging
+            if SHOW_SINGLE_SIM_PLOT and s == SIM_RUNS-1:
+                pltng.plot_single_param_sim(sim)
 
         # Average simulations
         avg_sim_data = AvgParameterSimData(sims)
