@@ -49,12 +49,14 @@ def init_matplotlib_params(save_not_show_fig, show_latex_fig):
 
     # Font if saving or ploting in tex mode
     if save_not_show_fig or show_latex_fig:
+        preamble = r"\usepackage{bm}"
         matplotlib.rcParams.update({
             "pgf.texsystem": "pdflatex",   
-            'font.family': 'serif',                     # Use serif/main font for text elements
-            'text.usetex': True,                        # Use inline maths for ticks
-            'pgf.rcfonts': False,                       # Don't setup fonts from matplotlib rc params
-            'text.latex.preamble' : r"\usepackage{bm}"  # Latex preamble packages go here
+            'font.family': 'serif',             # Use serif/main font for text elements
+            'text.usetex': True,                # Use inline maths for ticks
+            'pgf.rcfonts': False,               # Don't setup fonts from matplotlib rc params
+            'text.latex.preamble' : preamble,   # Latex preamble when displaying
+            'pgf.preamble': preamble            # Latex preamble when saving (pgf)
         })
 
     return
