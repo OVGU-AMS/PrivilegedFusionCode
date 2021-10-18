@@ -154,6 +154,65 @@ class AvgParameterSimData:
                 self.priv_filters_all_ms_errors_avg[Y][Z] = np.mean([s.priv_filters_all_ms_errors[Y][Z] for s in sim_list], axis=0)
         return
 
+class ParameterScanSimData:
+    def __init__(self, ident, num_sensors, Y_fixed, Z_fixed, Ys, Zs, privileges):
+        # Store general simulation information
+        self.ident = ident
+        self.num_sensors = num_sensors
+        self.gt = []
+
+        # Store the values that will be varied
+        self.Y_fixed = Y_fixed
+        self.Z_fixed = Z_fixed
+        self.Ys = Ys
+        self.Zs = Zs
+        self.privileges = privileges
+
+        # As params are varied, store all measurements, unprivielged and privileged filters' estimates in a 2-D dictionary of parameters
+        self.zs = {}
+        self.unpriv_filters_results = {}
+        self.priv_filters_j_ms_results = {}
+        self.priv_filters_all_ms_results = {}
+        for priv in privileges:
+            self.zs[priv] = {}
+            self.unpriv_filters_results[priv] = {}
+            self.priv_filters_j_ms_results[priv] = {}
+            self.priv_filters_all_ms_results[priv] = {}
+            for Y in Ys:
+                self.zs[priv]["Z_fixed"][Y] = dict(((s, []) for s in range(num_sensors)))
+                self.unpriv_filters_results[priv]["Z_fixed"][Y] = []
+                self.priv_filters_j_ms_results[priv]["Z_fixed"][Y] = []
+                self.priv_filters_all_ms_results[priv]["Z_fixed"][Y] = []
+            for Z in Zs:
+                self.zs[priv]["Y_fixed"][Z] = dict(((s, []) for s in range(num_sensors)))
+                self.unpriv_filters_results[priv]["Y_fixed"][Z] = []
+                self.priv_filters_j_ms_results[priv]["Y_fixed"][Z] = []
+                self.priv_filters_all_ms_results[priv]["Y_fixed"][Z] = []
+        
+        return
+    
+    def compute_steady_state_traces(self):
+        self.sim_len = len(self.gt)
+
+        # Compute errors of unprivileged, privileged with denoised measurements only and privileged with all measuremets filters, for all parameter combinations
+        self.unpriv_filters_traces = {}
+        self.priv_filters_j_ms_traces = {}
+        self.priv_filters_all_ms_traces = {}
+        for priv in self.privileges:
+            self.unpriv_filters_traces[priv] = {}
+            self.priv_filters_j_ms_traces[priv] = {}
+            self.priv_filters_all_ms_traces[priv] = {}
+            
+            self.unpriv_filters_traces[priv]["Z_fixed"] = [np.trace(self.unpriv_filters_results[priv]["Z_fixed"][Y][-1][1]) for Y in self.Ys]
+            self.priv_filters_j_ms_traces[priv]["Z_fixed"] = [np.trace(self.priv_filters_j_ms_results[priv]["Z_fixed"][Y][-1][1]) for Y in self.Ys]
+            self.priv_filters_all_ms_traces[priv]["Z_fixed"] = [np.trace(self.priv_filters_all_ms_results[priv]["Z_fixed"][Y][-1][1]) for Y in self.Ys]
+            
+            self.unpriv_filters_traces[priv]["Y_fixed"] = [np.trace(self.unpriv_filters_results[priv]["Y_fixed"][Z][-1][1]) for Z in self.Zs]
+            self.priv_filters_j_ms_traces[priv]["Y_fixed"] = [np.trace(self.priv_filters_j_ms_results[priv]["Y_fixed"][Z][-1][1]) for Z in self.Zs]
+            self.priv_filters_all_ms_traces[priv]["Y_fixed"] = [np.trace(self.priv_filters_all_ms_results[priv]["Y_fixed"][Z][-1][1]) for Z in self.Zs]
+        return
+
+
 """
  
  888b     d888        d8888 8888888 888b    888 
@@ -456,7 +515,6 @@ def main():
     """
 
     if MAKE_PARAM_SCAN_PLOT:
-        sims = []
         print("\nMaking Parameter Scan Plot ...\n")
         
         # # Progress printing
@@ -465,20 +523,22 @@ def main():
         
         # Varying pseudorandom correlated and uncorrelated covariances
         # TODO choose nicely for the sim
-        Ys = [2, 25]
-        Zs = [2, 25]
+
+        Y_fixed = 15
+        Z_fixed = 15
+        Ys = np.arange(1,41,3)
+        Zs = np.arange(1,41,3)
 
         # Only one privilege (number of keys) considered in this plot
         # TODO choose nicely for sim
-        fixed_privilege = 2
+
+        fixed_privileges = [2,3]
 
         # Sim data storage
-        sim = ParameterSimData(s, num_sensors, Ys, Zs)
-        sims.append(sim)
+        sim = ParameterScanSimData(s, num_sensors, Y_fixed, Z_fixed, Ys, Zs, fixed_privileges)
 
         # Synced cryptographically random number generators. Makes exactly the amount of each required by the simulation.
-        # Remade for each individual simulation to make popping from generator lists easier
-        sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(9-4*(s-(s%2))) for s in range(num_sensors)]
+        sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(9-4*(s-(s%2))) for s in range(num_sensors)] # TODO update
 
         # Creating simulation objects (ground truth, sensors and filters)
         ground_truth = estmtn.GroundTruth(F, Q, gt_init_state)
@@ -491,27 +551,47 @@ def main():
         unpriv_filters = {}
         priv_filters_j_ms = {}
         priv_filters_all_ms = {}
-        for Y in Ys:
-            sensor_correlated_covariances[Y] = {}
-            unpriv_filters[Y] = {}
-            priv_filters_j_ms[Y] = {}
-            priv_filters_all_ms[Y] = {}
-            for Z in Zs:
+        for priv in fixed_privileges:
+            sensor_correlated_covariances[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            unpriv_filters[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            priv_filters_j_ms[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            priv_filters_all_ms[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+
+            for Y in Ys:
                 # Correlation matrix
                 Y_mat = Y*np.eye(2)
-                Z_mat = Z*np.eye(2)
-                sensor_correlated_covariances[Y][Z] = np.block([[Z_mat+Y_mat if r==c else Z_mat for c in range(num_sensors)] for r in range(num_sensors)])
+                Z_mat = Z_fixed*np.eye(2)
+                sensor_correlated_covariances[priv]["Z_fixed"][Y] = np.block([[Z_mat+Y_mat if r==c else Z_mat for c in range(num_sensors)] for r in range(num_sensors)])
 
                 # Unpriv filter
-                unpriv_filters[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, [], num_sensors)
+                unpriv_filters[priv]["Z_fixed"][Y] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, [], num_sensors)
 
                 # Priv filter, denoisable measurements only
-                gens = [g.pop() for g in sensor_generators[:fixed_privilege]]
-                priv_filters_j_ms[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
+                gens = [g.pop() for g in sensor_generators[:priv]]
+                priv_filters_j_ms[priv]["Z_fixed"][Y] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
 
                 # Priv filter, all measurements
-                gens = [g.pop() for g in sensor_generators[:fixed_privilege]]
-                priv_filters_all_ms[Y][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, num_sensors)
+                gens = [g.pop() for g in sensor_generators[:priv]]
+                priv_filters_all_ms[priv]["Z_fixed"][Y] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, num_sensors)
+            
+            for Z in Zs:
+                # Correlation matrix
+                Y_mat = Y_fixed*np.eye(2)
+                Z_mat = Z*np.eye(2)
+                sensor_correlated_covariances[priv]["Y_fixed"][Z] = np.block([[Z_mat+Y_mat if r==c else Z_mat for c in range(num_sensors)] for r in range(num_sensors)])
+
+                # Unpriv filter
+                unpriv_filters[priv]["Y_fixed"][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, [], num_sensors)
+
+                # Priv filter, denoisable measurements only
+                gens = [g.pop() for g in sensor_generators[:priv]]
+                priv_filters_j_ms[priv]["Y_fixed"][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
+
+                # Priv filter, all measurements
+                gens = [g.pop() for g in sensor_generators[:priv]]
+                priv_filters_all_ms[priv]["Y_fixed"][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, num_sensors)
+
+
 
         # Run simulation
         for _ in range(SIM_STEPS):
@@ -523,9 +603,11 @@ def main():
             # Generate noise
             std_normals = np.block([g[0].next_n_as_std_gaussian(m) for g in sensor_generators])
 
+            
+
             # For each of the parameter combinations compute estimates accordingly
-            for Y in Ys:
-                for Z in Zs:
+            for priv in fixed_privileges:
+                for Y in Ys:
                     # Variables names of ease of reading (and likeness to other plot)
                     sensor_correlated_covariance = sensor_correlated_covariances[Y][Z]
                     unpriv_filter = unpriv_filters[Y][Z]
@@ -555,6 +637,9 @@ def main():
                     priv_filters_all_ms[Y][Z].predict()
                     res_all = priv_filters_all_ms[Y][Z].update(np.block(zs))
                     sim.priv_filters_all_ms_results[Y][Z].append(res_all)
+                
+                for Z in Zs:
+                    pass
     
         # Compute errors of the filters
         sim.compute_errors()
