@@ -174,10 +174,10 @@ class ParameterScanSimData:
         self.priv_filters_j_ms_results = {}
         self.priv_filters_all_ms_results = {}
         for priv in privileges:
-            self.zs[priv] = {}
-            self.unpriv_filters_results[priv] = {}
-            self.priv_filters_j_ms_results[priv] = {}
-            self.priv_filters_all_ms_results[priv] = {}
+            self.zs[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            self.unpriv_filters_results[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            self.priv_filters_j_ms_results[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
+            self.priv_filters_all_ms_results[priv] = dict((("Z_fixed", {}), ("Y_fixed", {})))
             for Y in Ys:
                 self.zs[priv]["Z_fixed"][Y] = dict(((s, []) for s in range(num_sensors)))
                 self.unpriv_filters_results[priv]["Z_fixed"][Y] = []
@@ -524,21 +524,22 @@ def main():
         # Varying pseudorandom correlated and uncorrelated covariances
         # TODO choose nicely for the sim
 
-        Y_fixed = 15
-        Z_fixed = 15
-        Ys = np.arange(1,41,3)
-        Zs = np.arange(1,41,3)
+        Y_fixed = 5
+        Z_fixed = 5
+        Ys = np.arange(0.25,10.25,0.25)
+        Zs = np.arange(0.25,10.25,0.25)
 
         # Only one privilege (number of keys) considered in this plot
         # TODO choose nicely for sim
 
-        fixed_privileges = [2,3]
+        fixed_privileges = [1,2]
 
         # Sim data storage
-        sim = ParameterScanSimData(s, num_sensors, Y_fixed, Z_fixed, Ys, Zs, fixed_privileges)
+        sim = ParameterScanSimData(0, num_sensors, Y_fixed, Z_fixed, Ys, Zs, fixed_privileges)
 
         # Synced cryptographically random number generators. Makes exactly the amount of each required by the simulation.
-        sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(9-4*(s-(s%2))) for s in range(num_sensors)] # TODO update
+        l = len(Ys)+len(Zs)
+        sensor_generators = [kystrm.SharedKeyStreamFactory.make_shared_key_streams(1+4*l-2*l*(s*(s-(s%2))//3)) for s in range(num_sensors)]
 
         # Creating simulation objects (ground truth, sensors and filters)
         ground_truth = estmtn.GroundTruth(F, Q, gt_init_state)
@@ -568,7 +569,7 @@ def main():
 
                 # Priv filter, denoisable measurements only
                 gens = [g.pop() for g in sensor_generators[:priv]]
-                priv_filters_j_ms[priv]["Z_fixed"][Y] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
+                priv_filters_j_ms[priv]["Z_fixed"][Y] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, priv)
 
                 # Priv filter, all measurements
                 gens = [g.pop() for g in sensor_generators[:priv]]
@@ -585,7 +586,7 @@ def main():
 
                 # Priv filter, denoisable measurements only
                 gens = [g.pop() for g in sensor_generators[:priv]]
-                priv_filters_j_ms[priv]["Y_fixed"][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, fixed_privilege)
+                priv_filters_j_ms[priv]["Y_fixed"][Z] = estmtn.PrivFusionFilter(n, m, F, Q, H, R, init_state, init_cov, Z_mat, Y_mat, gens, priv)
 
                 # Priv filter, all measurements
                 gens = [g.pop() for g in sensor_generators[:priv]]
@@ -603,14 +604,12 @@ def main():
             # Generate noise
             std_normals = np.block([g[0].next_n_as_std_gaussian(m) for g in sensor_generators])
 
-            
-
             # For each of the parameter combinations compute estimates accordingly
             for priv in fixed_privileges:
                 for Y in Ys:
                     # Variables names of ease of reading (and likeness to other plot)
-                    sensor_correlated_covariance = sensor_correlated_covariances[Y][Z]
-                    unpriv_filter = unpriv_filters[Y][Z]
+                    sensor_correlated_covariance = sensor_correlated_covariances[priv]["Z_fixed"][Y]
+                    unpriv_filter = unpriv_filters[priv]["Z_fixed"][Y]
 
                     # Correlate noise
                     correlated_noises = np.linalg.cholesky(sensor_correlated_covariance)@std_normals
@@ -620,39 +619,64 @@ def main():
                     for sen in range(num_sensors):
                         true_z = sensors[sen].measure(gt)
                         z = true_z + correlated_noises[sen*m:sen*m+m]
-                        sim.zs[Y][Z][sen].append(z)
+                        sim.zs[priv]["Z_fixed"][Y][sen].append(z)
                         zs.append(z)
 
                     # Unpriv filter estimate
                     unpriv_filter.predict()
                     res = unpriv_filter.update(np.block(zs))
-                    sim.unpriv_filters_results[Y][Z].append(res)
+                    sim.unpriv_filters_results[priv]["Z_fixed"][Y].append(res)
 
                     # Priv filter with denoise measurements only estimate
-                    priv_filters_j_ms[Y][Z].predict()
-                    res_j = priv_filters_j_ms[Y][Z].update(np.block(zs[:fixed_privilege]))
-                    sim.priv_filters_j_ms_results[Y][Z].append(res_j)
+                    priv_filters_j_ms[priv]["Z_fixed"][Y].predict()
+                    res_j = priv_filters_j_ms[priv]["Z_fixed"][Y].update(np.block(zs[:priv]))
+                    sim.priv_filters_j_ms_results[priv]["Z_fixed"][Y].append(res_j)
 
                     # Priv filter with all measurements estimate
-                    priv_filters_all_ms[Y][Z].predict()
-                    res_all = priv_filters_all_ms[Y][Z].update(np.block(zs))
-                    sim.priv_filters_all_ms_results[Y][Z].append(res_all)
+                    priv_filters_all_ms[priv]["Z_fixed"][Y].predict()
+                    res_all = priv_filters_all_ms[priv]["Z_fixed"][Y].update(np.block(zs))
+                    sim.priv_filters_all_ms_results[priv]["Z_fixed"][Y].append(res_all)
                 
                 for Z in Zs:
-                    pass
+                    # Variables names of ease of reading (and likeness to other plot)
+                    sensor_correlated_covariance = sensor_correlated_covariances[priv]["Y_fixed"][Z]
+                    unpriv_filter = unpriv_filters[priv]["Y_fixed"][Z]
+
+                    # Correlate noise
+                    correlated_noises = np.linalg.cholesky(sensor_correlated_covariance)@std_normals
+
+                    # Make all measurements and add pseudorandom noises
+                    zs = []
+                    for sen in range(num_sensors):
+                        true_z = sensors[sen].measure(gt)
+                        z = true_z + correlated_noises[sen*m:sen*m+m]
+                        sim.zs[priv]["Y_fixed"][Z][sen].append(z)
+                        zs.append(z)
+
+                    # Unpriv filter estimate
+                    unpriv_filter.predict()
+                    res = unpriv_filter.update(np.block(zs))
+                    sim.unpriv_filters_results[priv]["Y_fixed"][Z].append(res)
+
+                    # Priv filter with denoise measurements only estimate
+                    priv_filters_j_ms[priv]["Y_fixed"][Z].predict()
+                    res_j = priv_filters_j_ms[priv]["Y_fixed"][Z].update(np.block(zs[:priv]))
+                    sim.priv_filters_j_ms_results[priv]["Y_fixed"][Z].append(res_j)
+
+                    # Priv filter with all measurements estimate
+                    priv_filters_all_ms[priv]["Y_fixed"][Z].predict()
+                    res_all = priv_filters_all_ms[priv]["Y_fixed"][Z].update(np.block(zs))
+                    sim.priv_filters_all_ms_results[priv]["Y_fixed"][Z].append(res_all)
     
         # Compute errors of the filters
-        sim.compute_errors()
+        sim.compute_steady_state_traces()
 
         # Print the final simulation if flag is set. Primarily for debugging
-        if SHOW_SINGLE_SIM_PLOT and s == SIM_RUNS-1:
-            pltng.plot_single_param_sim(sim)
-
-        # Average simulations
-        avg_sim_data = AvgParameterSimData(sims)
+        # if SHOW_SINGLE_SIM_PLOT and s == SIM_RUNS-1:
+        #     pltng.plot_single_param_sim(sim)
 
         # Plot results
-        pltng.plot_parameter_differences(avg_sim_data, SAVE_NOT_SHOW_PLOTS, True)
+        pltng.plot_parameter_scan(sim, SAVE_NOT_SHOW_PLOTS, True)
 
     return
 

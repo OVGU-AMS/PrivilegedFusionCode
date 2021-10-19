@@ -383,3 +383,73 @@ def plot_parameter_differences(avg_sim_data, save_not_show, show_as_tex):
         plt.show()
 
     return
+
+
+def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
+    init_matplotlib_params(save_not_show, show_as_tex)
+
+    # TODO choose layout and adjust subplots (sizing)
+    fig, axes = plt.subplots(2, 2, figsize=(3.4, 4), sharex=True, sharey=True)
+
+    # Colours
+    colour_map = plt.cm.get_cmap('plasma_r')
+
+    # Loop and make the plots
+    unpriv_plots = []
+    priv_denoised_plots = []
+    priv_all_plots = []
+    ind = 0
+    for priv in sim_data.privileges:
+        for fixed in ["Y_fixed", "Z_fixed"]:
+
+            ax = axes.flat[ind]
+            # TODO change to fit layout and paper notation
+            ax.set_title(r'$%d$ keys, Fixed $%s$' % (priv, 'Y' if ind%2==0 else 'Z'))
+
+            if fixed == 'Y_fixed':
+                x = sim_data.Ys
+            else:
+                x = sim_data.Zs
+
+            # Unpriv in each plot
+            u, = ax.plot(x, [t for t in sim_data.unpriv_filters_traces[priv][fixed]], linestyle='-.', c='black')
+            
+            # Priv only denoised at each privilege
+            pd, = ax.plot(x, [t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]], linestyle='--', c=colour_map(1/4))
+
+            # Priv all at each privilege
+            pa, = ax.plot(x, [t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]], linestyle='-', c=colour_map(3/4))
+
+            unpriv_plots.append(u)
+            priv_denoised_plots.append(pd)
+            priv_all_plots.append(pa)
+
+            ind+=1
+
+    # TODO change legend to fit layout (either per-graph or one tight fitting one)
+    # Legend
+    fig.legend((unpriv_plots[0], 
+                priv_denoised_plots[0], 
+                priv_all_plots[0]), 
+               (r'$(0,4)$ (unprivileged)',
+                r'$(2,2)$',
+                r'$(2,4)$'), loc='upper center', ncol=3)
+
+    # Shared axis labels
+    fig.supxlabel(r'Simulation Time')   
+    fig.supylabel(r'Mean Squared Error (MSE)')
+
+    # TODO hide ticks according to set layout
+    # Hide relevant axis ticks
+    for a in [axes[0][0], axes[0][1]]:
+        a.tick_params(bottom=False)
+    for a in [axes[0][1], axes[1][1]]:
+        a.tick_params(left=False)
+
+    # Save or show picture
+    if save_not_show:
+        plt.savefig('pictures/parameter_differences.pdf')
+    else:
+        plt.show()
+
+    return
