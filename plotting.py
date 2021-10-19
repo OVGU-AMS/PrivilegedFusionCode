@@ -415,10 +415,10 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
             u, = ax.plot(x, [t for t in sim_data.unpriv_filters_traces[priv][fixed]], linestyle='-.', c='black')
             
             # Priv only denoised at each privilege
-            pd, = ax.plot(x, [t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]], linestyle='--', c=colour_map(1/4))
+            pd, = ax.plot(x, [t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]], linestyle='--', c=colour_map((ind+1)/4))
 
             # Priv all at each privilege
-            pa, = ax.plot(x, [t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]], linestyle='-', c=colour_map(3/4))
+            pa, = ax.plot(x, [t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]], linestyle='-', c=colour_map((ind+1)/4))
 
             unpriv_plots.append(u)
             priv_denoised_plots.append(pd)
@@ -430,14 +430,18 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
     # Legend
     fig.legend((unpriv_plots[0], 
                 priv_denoised_plots[0], 
-                priv_all_plots[0]), 
+                priv_all_plots[0],
+                priv_denoised_plots[-1], 
+                priv_all_plots[-1]), 
                (r'$(0,4)$ (unprivileged)',
-                r'$(2,2)$',
-                r'$(2,4)$'), loc='upper center', ncol=3)
+                r'$(%d,%d)$' % (sim_data.privileges[0], sim_data.privileges[0]),
+                r'$(%d,4)$' % (sim_data.privileges[0]),
+                r'$(%d,%d)$' % (sim_data.privileges[1], sim_data.privileges[1]),
+                r'$(%d,4)$' % (sim_data.privileges[1])), loc='upper center', ncol=3)
 
     # Shared axis labels
-    fig.supxlabel(r'Simulation Time')   
-    fig.supylabel(r'Mean Squared Error (MSE)')
+    fig.supxlabel(r'Free parameter ($Y$ or $Z$)')   
+    fig.supylabel(r'Steady State Trace')
 
     # TODO hide ticks according to set layout
     # Hide relevant axis ticks
@@ -448,7 +452,7 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
 
     # Save or show picture
     if save_not_show:
-        plt.savefig('pictures/parameter_differences.pdf')
+        plt.savefig('pictures/parameter_scan.pdf')
     else:
         plt.show()
 
