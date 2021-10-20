@@ -389,7 +389,7 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
     init_matplotlib_params(save_not_show, show_as_tex)
 
     # TODO choose layout and adjust subplots (sizing)
-    fig, axes = plt.subplots(2, 2, figsize=(3.4, 4), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(3.4, 4), sharex='col', sharey=True)
 
     # Colours
     colour_map = plt.cm.get_cmap('plasma_r')
@@ -404,7 +404,7 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
 
             ax = axes.flat[ind]
             # TODO change to fit layout and paper notation
-            ax.set_title(r'$%d$ keys, Fixed $%s$' % (priv, 'Y' if ind%2==0 else 'Z'))
+            ax.set_title(r'$%d$ key%s, $%s=%d\bm{I}$' % (priv, '' if priv==1 else 's', 'Y' if ind%2==0 else 'Z', sim_data.Y_fixed if ind%2==0 else sim_data.Z_fixed))
 
             if fixed == 'Y_fixed':
                 x = sim_data.Ys
@@ -424,6 +424,11 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
             priv_denoised_plots.append(pd)
             priv_all_plots.append(pa)
 
+            # Column x axis labels
+            # TODO change to fit layout
+            if priv == sim_data.privileges[-1]:
+                ax.set_xlabel(r'$\sigma_%s$' % ('z' if ind%2==0 else 'y'), labelpad=10, size='large')
+
             ind+=1
 
     # TODO change legend to fit layout (either per-graph or one tight fitting one)
@@ -437,11 +442,11 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
                 r'$(%d,%d)$' % (sim_data.privileges[0], sim_data.privileges[0]),
                 r'$(%d,4)$' % (sim_data.privileges[0]),
                 r'$(%d,%d)$' % (sim_data.privileges[1], sim_data.privileges[1]),
-                r'$(%d,4)$' % (sim_data.privileges[1])), loc='upper center', ncol=3)
+                r'$(%d,4)$' % (sim_data.privileges[1])), loc='upper center', ncol=5)
 
     # Shared axis labels
-    fig.supxlabel(r'Free parameter ($Y$ or $Z$)')   
-    fig.supylabel(r'Steady State Trace')
+    # TODO change to fit layout
+    fig.supylabel(r'Steady State Trace $\left(\mathsf{tr}(\lim_{k \to \infty}\bm{P}_k)\right)$')
 
     # TODO hide ticks according to set layout
     # Hide relevant axis ticks
