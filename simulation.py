@@ -5,16 +5,16 @@ import estimation as estmtn
 import key_stream as kystrm
 
 
-SIM_RUNS = 20
+SIM_RUNS = 1000
 SIM_STEPS = 100
-PROGRESS_PRINTS = 5
+PROGRESS_PRINTS = 25
 SHOW_SINGLE_SIM_PLOT = False
 
-MAKE_PRIV_PLOT = False
-MAKE_PARAM_PLOT = False
+MAKE_PRIV_PLOT = True
+MAKE_PARAM_PLOT = True
 MAKE_PARAM_SCAN_PLOT = True
 
-SAVE_NOT_SHOW_PLOTS = False
+SAVE_NOT_SHOW_PLOTS = True
 
 
 """
@@ -293,8 +293,8 @@ def main():
                 print("Running Simulation %d ..." % s)
             
             # Pseudorandom correleated and uncorrelated covariances
-            Z = 10*np.eye(2)
-            Y = 8*np.eye(2)
+            Z = 2*np.eye(2)
+            Y = 10*np.eye(2)
             sensor_correlated_covariance = np.block([[Z+Y if r==c else Z for c in range(num_sensors)] for r in range(num_sensors)])
             
             # Sim data storage
@@ -393,12 +393,10 @@ def main():
                 print("Running Simulation %d ..." % s)
             
             # Varying pseudorandom correlated and uncorrelated covariances
-            # TODO choose nicely for the sim
-            Ys = [2, 25]
-            Zs = [2, 25]
+            Ys = [2, 10]
+            Zs = [2, 10]
 
             # Only one privilege (number of keys) considered in this plot
-            # TODO choose nicely for sim
             fixed_privilege = 2
 
             # Sim data storage
@@ -522,7 +520,6 @@ def main():
         #     print("Running Simulation %d ..." % s)
         
         # Varying pseudorandom correlated and uncorrelated covariances
-        # TODO choose nicely for the sim
 
         Y_fixed = 5
         Z_fixed = 5
@@ -530,7 +527,6 @@ def main():
         Zs = np.arange(0.25,10.25,0.25)
 
         # Only one privilege (number of keys) considered in this plot
-        # TODO choose nicely for sim
 
         fixed_privileges = [1,2]
 
