@@ -387,17 +387,19 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
                 x = sim_data.Zs
 
             # Unpriv in each plot
-            u, = ax.plot(x, [t for t in sim_data.unpriv_filters_traces[priv][fixed]], linestyle='-.')
+            u, = ax.plot(x, [a-b for a,b in zip([t for t in sim_data.unpriv_filters_traces[priv][fixed]],[t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]])], linestyle='-', color='darkblue')
             
             # Priv only denoised at each privilege
-            pd, = ax.plot(x, [t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]], linestyle='-.')
+            pd, = ax.plot(x, [b-a for a,b in zip([t for t in sim_data.priv_filters_j_ms_traces[priv][fixed]],[t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]])], linestyle='-', color='r')
+
+            ax.hlines(0, x[0], x[-1], colors=['grey'], linestyle='--')
 
             # Priv all at each privilege
-            pa, = ax.plot(x, [t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]], linestyle='-.')
+            #pa, = ax.plot(x, [t for t in sim_data.priv_filters_all_ms_traces[priv][fixed]], linestyle='-.')
 
             unpriv_plots.append(u)
             priv_denoised_plots.append(pd)
-            priv_all_plots.append(pa)
+            #priv_all_plots.append(pa)
 
             # Column x axis labels
             if priv == sim_data.privileges[-1]:
@@ -407,14 +409,12 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
 
     # Legend
     fig.legend((unpriv_plots[0], 
-                priv_denoised_plots[0], 
-                priv_all_plots[0]), 
-               (r'$\mathsf{e}^{[0,4]}$',
-                r'$\mathsf{e}^{[p,p]}$',
-                r'$\mathsf{e}^{[p,4]}$'), loc='upper center', ncol=3)
+                priv_denoised_plots[0]), 
+               (r'PLLB',
+                r'PGUB'), loc='upper center', ncol=2)
 
     # Shared axis labels
-    fig.supylabel(r'Steady State Trace $\left(\mathsf{tr}(\lim_{k \to \infty}\mathbf{P}_k)\right)$')
+    fig.supylabel(r'Steady State Trace $\left(\mathsf{tr}(\lim_{k \to \infty}\mathbf{D}_k)\right)$')
 
     # Hide relevant axis ticks
     for a in [axes[0][0], axes[0][1]]:
