@@ -266,6 +266,9 @@ def plot_privilege_differences(avg_sim_data, save_not_show, show_as_tex):
         # Priv all trace (to check the average MSE above is correct)
         #pa, = ax.plot([x for x in range(avg_sim_data.sim_len)], [np.trace(e[1]) for e in avg_sim_data.last_sim.priv_filters_all_ms_results[i]], linestyle='-')
 
+        ax.fill_between([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[i]], [e for e in avg_sim_data.unpriv_filter_errors_avg], color='lightsteelblue')
+        ax.fill_between([x for x in range(avg_sim_data.sim_len)], [e for e in avg_sim_data.priv_filters_j_ms_errors_avg[i]], [e for e in avg_sim_data.priv_filters_all_ms_errors_avg[i]], color='lightcoral')
+
         unpriv_plots.append(u)
         priv_denoised_plots.append(pd)
         priv_all_plots.append(pa)
@@ -414,7 +417,7 @@ def plot_parameter_scan(sim_data, save_not_show, show_as_tex):
                 r'PGUB'), loc='upper center', ncol=2)
 
     # Shared axis labels
-    fig.supylabel(r'Steady State Trace $\left(\mathsf{tr}(\lim_{k \to \infty}\mathbf{D}_k)\right)$')
+    fig.supylabel(r'Steady-State Trace $\left(\mathsf{tr}(\lim_{k \to \infty}\mathbf{D}_k)\right)$')
 
     # Hide relevant axis ticks
     for a in [axes[0][0], axes[0][1]]:

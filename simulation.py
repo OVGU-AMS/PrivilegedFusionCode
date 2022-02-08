@@ -5,16 +5,16 @@ import estimation as estmtn
 import key_stream as kystrm
 
 
-SIM_RUNS = 1000
+SIM_RUNS = 10
 SIM_STEPS = 100
 PROGRESS_PRINTS = 25
 SHOW_SINGLE_SIM_PLOT = False
 
 MAKE_PRIV_PLOT = True
-MAKE_PARAM_PLOT = True
-MAKE_PARAM_SCAN_PLOT = True
+MAKE_PARAM_PLOT = False
+MAKE_PARAM_SCAN_PLOT = False
 
-SAVE_NOT_SHOW_PLOTS = True
+SAVE_NOT_SHOW_PLOTS = False
 
 
 """
